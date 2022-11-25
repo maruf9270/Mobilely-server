@@ -149,6 +149,23 @@ async function run (){
             res.send(result)
         })
 
+         //!This should be admin varified route
+        //  Sending all the buyer to the front side
+        app.get('/buyers',async (req,res)=>{
+            const filter = {role: "buyer"}
+            const result = await users.find(filter).toArray()
+            res.send(result)
+        })
+
+        //!This should be admin varified route
+        // Deleting the sellers form the website
+        app.delete('/sellers/:id',async(req,res)=>{
+            
+            const query = {_id: ObjectId(req.params.id)}
+            const result = await users.deleteOne(query)
+            res.send(result);
+        })
+
 
     }
     catch{
