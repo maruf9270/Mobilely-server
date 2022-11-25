@@ -16,7 +16,7 @@ res.send("server is running")})
 
 // Mongodb sercice
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_user}:${process.env.DB_pass}@cluster0.acms3da.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 // client.connect(err => {
@@ -35,6 +35,8 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 async function run (){
     const database = client.db('Mobilely')
     const users = database.collection('users')
+    const brands = database.collection('brands')
+    const products = database.collection('products')
     try{
         // 1. Handling email and password signups
         app.put('/user',async(req,res)=>{
@@ -59,6 +61,55 @@ async function run (){
                 res.end(result)
             }
            
+        })
+
+        // 3. sending the bran name to the user side 
+        app.get('/brands',async(req,res)=>{
+            const querry = {}
+            const result = await brands.find(querry).toArray()
+            res.send(result)
+            
+        })
+        //! Getting the request form the user about the product and posting the product in the db this should be buyer protectd route
+
+        app.post('/product/:email',async(req,res)=>{
+            const email = req.params.email
+            const product = req.body
+            const result = await products.insertOne(product)
+            console.log(req.headers.token, email);
+            res.send(result)
+        })
+
+        // Sending the data to the users
+        app.get('/products/:email', async(req,res)=>{
+            const email = req.params.email;
+            const query = {"user.email": email}
+            const result = await products.find(query).toArray();
+            res.send(result);
+        })
+        
+        // Setting data to advertised
+        app.put('/advertise',async(req,res)=>{
+    
+            const id = req.body.id
+            console.log(id);
+            const query = {_id: ObjectId(id)}
+            const option = { upsert: true}
+            const updata = {
+                $set: {
+                    advertised: true
+                }
+            }
+            const result = await products.updateOne(query,updata,option);
+            res.send(result)
+        })
+
+        // deleting product
+        app.delete('/product',async(req,res)=>{
+            const id = req.body.id
+            const query = {_id: ObjectId(id)}
+            const result = await products.deleteOne(query);
+            res.send(result)
         })
 
 
