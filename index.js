@@ -166,6 +166,22 @@ async function run (){
             res.send(result);
         })
 
+        /// This should be privet route
+        app.get('/brand', async(req,res)=>{
+            const query = req.query.name;
+            const filter = {brand: query,advertised: true}
+            const result = await products.find(filter).toArray()
+            res.send(result)
+        }) 
+
+        // Sending seller info for prodct card
+        app.get('/product/seller/:mail', async(req,res)=>{
+            const email = req.params.mail
+            const query = {email:email}
+            const result = await users.findOne(query)
+            res.send(result);
+        })
+
 
     }
     catch{
