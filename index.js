@@ -113,6 +113,43 @@ async function run (){
         })
 
 
+        //!This should be admin varified route
+        // Sending all the seller data to the user end
+        app.get('/sellers',async(req,res)=>{
+            const querry = {role: "seller"}
+            const result = await users.find(querry).project({password:0}).toArray()
+            res.send(result)
+        })
+
+         
+        //!This should be admin varified route
+        // varifying the user
+        app.put('/varify', async(req,res)=>{
+            const id = req.body.id;
+            const query = {_id: ObjectId(id)}
+            const option = {
+                upsert: true
+            }
+            const uData = {
+                $set: {
+                    varified: true
+                }
+            }
+            const result =await users.updateOne(query,uData,option)
+           
+            res.send(result)
+
+        })
+        //!This should be admin varified route
+        // Deleting user from the server
+        app.delete('/users/:id',async(req,res)=>{
+            const id = req.params.id;
+            const query = {_id: ObjectId(id)};
+            const result = users.deleteOne(query)
+            res.send(result)
+        })
+
+
     }
     catch{
 
