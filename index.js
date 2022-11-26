@@ -1,4 +1,6 @@
 const express = require('express');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+var jwt = require('jsonwebtoken');
 const cors = require('cors')
 const app = express()
 require("dotenv").config();
@@ -16,9 +18,10 @@ res.send("server is running")})
 
 // Mongodb sercice
 
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+
 const uri = `mongodb+srv://${process.env.DB_user}:${process.env.DB_pass}@cluster0.acms3da.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+const privetKey = process.env.PRIVET_Key
 // client.connect(err => {
 //     if(err){
 //         console.log("not");
@@ -36,8 +39,30 @@ async function run (){
     const database = client.db('Mobilely')
     const users = database.collection('users')
     const brands = database.collection('brands')
-    const products = database.collection('products')
+    const products = database.collection('products');
+    const bookings = database.collection('bookings');
     try{
+        // middleware for varifying jwt
+        const variryJwt = (req,res,next)=>{
+            const token = req.headers.token;
+            console.log(token);
+            if(!token){
+                return res.send({message: "1Unauthorized Access"})
+            }
+            else{
+                jwt.verify(token,privetKey,function(err,decoded){
+                    console.log(err);
+                    if(err){
+                        return res.send({message: "2Unauthorized Access"})
+                    }
+                    else{
+                        req.decoded = decoded
+                        next()
+                    }
+                })
+            }
+        }
+
         // 1. Handling email and password signups
         app.put('/user',async(req,res)=>{
             const user = req.body
@@ -181,6 +206,33 @@ async function run (){
             const result = await users.findOne(query)
             res.send(result);
         })
+
+        // !This should be token varified
+        // Seving booking information to the server
+        app.put('/bookings',variryJwt,async(req,res)=>{
+            const email = req.decoded.email
+            const query = {email: email}
+            const user = await users.findOne(query)
+            if(!user){
+               return res.send({Message: "Unauthorized Access"})
+            }
+            const data = req.body
+            const result = await bookings.insertOne(data)
+            res.send(result)
+        })
+
+
+
+
+
+        // !sending token to the user end
+        app.get('/jwt/:email',(req,res)=>{
+            const email = req.params.email;
+            const token = jwt.sign({email:email},privetKey)
+            res.send({token:token})
+            
+        })
+        
 
 
     }
