@@ -339,6 +339,34 @@ async function run (){
             res.send(result)
         })
 
+        // !this should be admin varified
+        app.get('/reports',async(req,res)=>{
+            const reportQuery = {}
+            const result = await reports.find(reportQuery).toArray()
+           if(result){
+            let rid = []
+            result.forEach((r)=>{
+                rid.push(ObjectId(r.reportedPID))
+                
+
+            })
+
+            const rproducts = await products.find({_id: {$in: rid}}).toArray()
+           return res.send(rproducts)
+           }
+           
+           res.send([])
+        })
+
+
+        // Deleting reported item'
+        // !This should be admin 
+        app.delete('/deletereported/:id',variryJwt,async(req,res)=>{
+            const id = req.params.id;
+            const query = {_id: ObjectId(id)}
+            const result = await products.deleteOne(query);
+            res.send(result)
+        })
 
         // !sending token to the user end
         app.get('/jwt/:email',(req,res)=>{
