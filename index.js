@@ -5,6 +5,7 @@ const cors = require('cors')
 const app = express()
 require("dotenv").config();
 const port = process.env.PORT || 5000;
+const stripe = require("stripe")(`${process.env.SRTIPE}`)
 
 
 // Using middleware
@@ -41,6 +42,8 @@ async function run (){
     const brands = database.collection('brands')
     const products = database.collection('products');
     const bookings = database.collection('bookings');
+    const payments = database.collection('payments')
+    const reports = database.collection('reports')
     try{
         // middleware for varifying jwt
         const variryJwt = (req,res,next)=>{
@@ -192,9 +195,10 @@ async function run (){
         })
 
         /// This should be privet route
+        // Sendign the products data to the user end
         app.get('/brand', async(req,res)=>{
             const query = req.query.name;
-            const filter = {brand: query,advertised: true}
+            const filter = {brand: query,advertised: true,sold:false}
             const result = await products.find(filter).toArray()
             res.send(result)
         }) 
@@ -216,13 +220,124 @@ async function run (){
             if(!user){
                return res.send({Message: "Unauthorized Access"})
             }
+            
             const data = req.body
+            const buyerEmail = data.buyer;
+            const ProductId = data.productId
+            const bookingQuery = {productId: ProductId,
+                                   buyer: buyerEmail}
+            const isbooked = await bookings.findOne(bookingQuery)
+            console.log(isbooked);
+            if(isbooked){
+                return res.send({message: "You already have a Meeting Booking for this product"})
+            }
             const result = await bookings.insertOne(data)
+            res.send(result,)
+        })
+
+        // Sending the buyers their order data 
+        app.get('/orders/:email',async(req,res)=>{
+            const mail = req.params.email;
+            const query = {buyer: mail}
+            const result = await bookings.find(query).toArray()
+            res.send(result);
+
+        })
+
+        // !This is token varified
+        // Sending a single product
+
+        app.get('/product/:id', async(req,res)=>{
+            const id = req.params.id
+            const querry = {_id: ObjectId(id) }
+            const result = await products.findOne(querry)
             res.send(result)
+        })
+
+        // Providing a single order id 
+        app.get('/order/:id', async (req,res)=>{
+            const orderId = req.params.id;
+            console.log(req);
+            const query = {_id: ObjectId(orderId)};
+            const result = await bookings.findOne(query);
+            res.send(result)
+
         })
 
 
 
+
+        // !Making api for payment it should be very secure
+        app.post("/create-payment-intent",async(req,res)=>{
+            const orderID = req.body.oid;
+            const productId = req.body.productId;
+            const productQuery = {_id: ObjectId(productId)}
+            const product = await products.findOne(productQuery);
+            const price = parseInt(product.resellPrice)
+            const priceIncents = price * 1000
+          
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: priceIncents,
+                currency: "usd",
+                automatic_payment_methods: {
+                    enabled: true,
+                  }
+                //   "payment_method_types": [
+                //     "card"
+                // ]
+
+            });
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            });
+
+        })
+
+
+        // Setting payment to the db
+        app.post('/payments', variryJwt,async(req,res)=>{
+            const paymentData = req.body;
+            const orderId = paymentData.oid;
+            const transactionId = paymentData.transactionId
+            const querry = {_id: ObjectId(orderId)};
+            const order = await bookings.findOne(querry)
+            const mail = order.buyer;
+            
+            const productId = order.productId; 
+            const option = {upsert: true}
+            const updateBookingData = {
+                $set: {
+                    paid: true,
+                    tid:transactionId
+                }
+            }
+
+            const updateBooking = await bookings.updateOne(querry,updateBookingData,option)
+
+            const productQuerry = {_id: ObjectId(productId)}
+            const updateProductInfo = {
+                $set: {
+                    sold: true,
+                    mail: mail,
+                    tid: transactionId,
+                    oid: orderId
+
+                }
+            }
+            const upadteProduct = await products.updateOne(productQuerry,updateProductInfo,option)
+
+            const updatePayment = await payments.insertOne(paymentData)
+            res.send(updateBooking,upadteProduct,updatePayment)
+            
+        })
+
+        // sending reported item to the db
+        app.put('/reports',variryJwt,async(req,res)=>{
+            const report = req.body;
+            const result = await reports.insertOne(report)
+            res.send(result)
+        })
 
 
         // !sending token to the user end
