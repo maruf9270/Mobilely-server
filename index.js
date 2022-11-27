@@ -66,6 +66,20 @@ async function run (){
             }
         }
 
+
+        // Using useAdminHok
+        app.get('/admin/:email',variryJwt,async(req,res)=>{
+            const email = req.params.email;
+            const query = {email: email, admin: true}
+            const result = await users.findOne(query)
+            if(result){
+                return res.send({admin:true})
+            }
+            else{
+                res.send({admin:false})
+            }
+           
+        })
         // 1. Handling email and password signups
         app.put('/user',async(req,res)=>{
             const user = req.body
@@ -100,16 +114,26 @@ async function run (){
         })
         //! Getting the request form the user about the product and posting the product in the db this should be buyer protectd route
 
-        app.post('/product/:email',async(req,res)=>{
+        app.post('/product/:email',variryJwt,async(req,res)=>{
             const email = req.params.email
-            const product = req.body
-            const result = await products.insertOne(product)
-            console.log(req.headers.token, email);
-            res.send(result)
+            const query = {email: email,role: "seller"}
+            const user = await users.findOne(query)
+            if(user){
+                const product = req.body
+                const result = await products.insertOne(product)
+                console.log(req.headers.token, email);
+                return res.send(result)
+            }
+
+            else{
+                return ({message: "Unauthorized"})
+            }
+            
+           
         })
 
         // Sending the data to the users
-        app.get('/products/:email', async(req,res)=>{
+        app.get('/products/:email',variryJwt, async(req,res)=>{
             const email = req.params.email;
             const query = {"user.email": email}
             const result = await products.find(query).toArray();
@@ -117,36 +141,70 @@ async function run (){
         })
         
         // Setting data to advertised
-        app.put('/advertise',async(req,res)=>{
-    
-            const id = req.body.id
-            console.log(id);
-            const query = {_id: ObjectId(id)}
-            const option = { upsert: true}
-            const updata = {
-                $set: {
-                    advertised: true
+        app.put('/advertise',variryJwt,async(req,res)=>{
+            const squery = {email: req.decoded.email, role: "seller"}
+            const isSeller = await users.findOne(squery)
+
+            const adminQuery = {email: req.decoded.email, admin: true}
+            const isAmin = await users.findOne(adminQuery);
+
+            if(isSeller || isAmin){
+                const id = req.body.id
+                console.log(id);
+                const query = {_id: ObjectId(id)}
+                const option = { upsert: true}
+                const updata = {
+                    $set: {
+                        advertised: true
+                    }
                 }
+                const result = await products.updateOne(query,updata,option);
+                return res.send(result)
             }
-            const result = await products.updateOne(query,updata,option);
-            res.send(result)
+            else{
+                res.send({message: "Unauthorized"})
+            }
+            
+           
         })
 
         // deleting product
-        app.delete('/product',async(req,res)=>{
-            const id = req.body.id
+        app.delete('/product',variryJwt,async(req,res)=>{
+            const squery = {email: req.decoded.email, role: "seller"}
+            const isSeller = await users.findOne(squery)
+
+            const adminQuery = {email: req.decoded.email, admin: true}
+            const isAmin = await users.findOne(adminQuery);
+            if(isSeller || isAmin){
+                const id = req.body.id
             const query = {_id: ObjectId(id)}
             const result = await products.deleteOne(query);
-            res.send(result)
+            return res.send(result)
+            }
+            else{
+                res.send({message: "Unauthorized Access"})
+            }
+
+            
         })
 
 
         //!This should be admin varified route
         // Sending all the seller data to the user end
-        app.get('/sellers',async(req,res)=>{
-            const querry = {role: "seller"}
-            const result = await users.find(querry).project({password:0}).toArray()
-            res.send(result)
+        app.get('/sellers',variryJwt,async(req,res)=>{
+            const email = req.decoded.email
+            const query = {email: email, admin: true }
+            const found = await users.findOne(query);
+            if(found){
+                const querry = {role: "seller"}
+                const result = await users.find(querry).project({password:0}).toArray()
+                return  res.send(result)
+            }
+            
+            else{
+                res.send({Message: "Unauthorized"})
+            }
+           
         })
 
          
@@ -187,11 +245,20 @@ async function run (){
 
         //!This should be admin varified route
         // Deleting the sellers form the website
-        app.delete('/sellers/:id',async(req,res)=>{
+        app.delete('/sellers/:id',variryJwt,async(req,res)=>{
+            const email = req.decoded.email;
+            const adminq = {email: email, admin: true}
+            const isAdmin = await users.findOne(adminq)
+            if(isAdmin){
+                const query = {_id: ObjectId(req.params.id)}
+                const result = await users.deleteOne(query)
+                return res.send(result);
+            }
+            else{
+                return res.send({message: "Unauthorized"})
+            }
             
-            const query = {_id: ObjectId(req.params.id)}
-            const result = await users.deleteOne(query)
-            res.send(result);
+            
         })
 
         /// This should be privet route
@@ -236,7 +303,7 @@ async function run (){
         })
 
         // Sending the buyers their order data 
-        app.get('/orders/:email',async(req,res)=>{
+        app.get('/orders/:email',variryJwt,async(req,res)=>{
             const mail = req.params.email;
             const query = {buyer: mail}
             const result = await bookings.find(query).toArray()
@@ -374,6 +441,19 @@ async function run (){
             const token = jwt.sign({email:email},privetKey)
             res.send({token:token})
             
+        })
+
+        // Verifying seller
+        app.get('/sellerverify/:email',variryJwt,async(req,res)=>{
+            const email = req.params.email;
+            const query = {email: email, role: "seller"}
+            const result = await users.findOne(query)
+            if(result){
+                return res.send({seller: true})
+            }
+            else{
+                return res.send({seller: false})
+            }
         })
         
 
