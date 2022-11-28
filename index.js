@@ -23,17 +23,6 @@ res.send("server is running")})
 const uri = `mongodb+srv://${process.env.DB_user}:${process.env.DB_pass}@cluster0.acms3da.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 const privetKey = process.env.PRIVET_Key
-// client.connect(err => {
-//     if(err){
-//         console.log("not");
-//     }
-//   const collection = client.db("test").collection("devices");
-//   // perform actions on the collection object
-//   client.close();
-// else{
-//     console.log('connected');
-// }
-// });
 
 // Main sectiono oof the server
 async function run (){
@@ -48,15 +37,15 @@ async function run (){
         // middleware for varifying jwt
         const variryJwt = (req,res,next)=>{
             const token = req.headers.token;
-            console.log(token);
+           
             if(!token){
-                return res.send({message: "1Unauthorized Access"})
+                return res.send({message: "Unauthorized Access"})
             }
             else{
                 jwt.verify(token,privetKey,function(err,decoded){
-                    console.log(err);
+                
                     if(err){
-                        return res.send({message: "2Unauthorized Access"})
+                        return res.send({message: "Unauthorized Access"})
                     }
                     else{
                         req.decoded = decoded
@@ -98,7 +87,7 @@ async function run (){
             }
 
             else{
-                console.log(data);
+              
                 const result = await users.insertOne(data)
                 res.end(result)
             }
@@ -121,7 +110,7 @@ async function run (){
             if(user){
                 const product = req.body
                 const result = await products.insertOne(product)
-                console.log(req.headers.token, email);
+              
                 return res.send(result)
             }
 
@@ -150,7 +139,7 @@ async function run (){
 
             if(isSeller || isAmin){
                 const id = req.body.id
-                console.log(id);
+              
                 const query = {_id: ObjectId(id)}
                 const option = { upsert: true}
                 const updata = {
@@ -208,9 +197,12 @@ async function run (){
         })
 
          
-        //!This should be admin varified route
         // varifying the user
-        app.put('/varify', async(req,res)=>{
+        app.put('/varify', variryJwt,async(req,res)=>{
+            const email = req.decoded.email;
+            const adminq = {email: email, admin: true}
+            const isAdmin = await users.findOne(adminq)
+           if(isAdmin){
             const id = req.body.id;
             const query = {_id: ObjectId(id)}
             const option = {
@@ -223,24 +215,46 @@ async function run (){
             }
             const result =await users.updateOne(query,uData,option)
            
-            res.send(result)
+           return res.send(result)
+           }
+           else{
+            return res.send({message: "Unauthorized"})
+        }
 
         })
         //!This should be admin varified route
         // Deleting user from the server
-        app.delete('/users/:id',async(req,res)=>{
-            const id = req.params.id;
+        app.delete('/users/:id',variryJwt,async(req,res)=>{
+            const email = req.decoded.email;
+            const adminq = {email: email, admin: true}
+            const isAdmin = await users.findOne(adminq)
+            if(isAdmin){
+                const id = req.params.id;
             const query = {_id: ObjectId(id)};
             const result = users.deleteOne(query)
-            res.send(result)
+            return res.send(result)
+            }
+            else{
+                return res.send({message: "Unauthorized"})
+            }
+            
         })
 
          //!This should be admin varified route
         //  Sending all the buyer to the front side
-        app.get('/buyers',async (req,res)=>{
-            const filter = {role: "buyer"}
-            const result = await users.find(filter).toArray()
-            res.send(result)
+        app.get('/buyers',variryJwt,async (req,res)=>{
+            const email = req.decoded.email;
+            const adminq = {email: email, admin: true}
+            const isAdmin = await users.findOne(adminq)
+            if(isAdmin){
+                const filter = {role: "buyer"}
+                const result = await users.find(filter).toArray()
+                return  res.send(result)
+            }
+            else{
+                return res.send({message: "Unauthorized"})
+            }
+           
         })
 
         //!This should be admin varified route
@@ -294,7 +308,7 @@ async function run (){
             const bookingQuery = {productId: ProductId,
                                    buyer: buyerEmail}
             const isbooked = await bookings.findOne(bookingQuery)
-            console.log(isbooked);
+         
             if(isbooked){
                 return res.send({message: "You already have a Meeting Booking for this product"})
             }
@@ -324,7 +338,7 @@ async function run (){
         // Providing a single order id 
         app.get('/order/:id', async (req,res)=>{
             const orderId = req.params.id;
-            console.log(req);
+       
             const query = {_id: ObjectId(orderId)};
             const result = await bookings.findOne(query);
             res.send(result)
@@ -448,7 +462,7 @@ async function run (){
             const email = req.params.email;
             const squery = {email: email, role: "seller"}
             const result = await users.findOne(squery)
-            console.log(result);
+
             if(result){
                 return res.send({seller: true})
             }
