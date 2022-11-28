@@ -446,14 +446,23 @@ async function run (){
         // Verifying seller
         app.get('/sellerverify/:email',variryJwt,async(req,res)=>{
             const email = req.params.email;
-            const query = {email: email, role: "seller"}
-            const result = await users.findOne(query)
+            const squery = {email: email, role: "seller"}
+            const result = await users.findOne(squery)
+            console.log(result);
             if(result){
                 return res.send({seller: true})
             }
             else{
                 return res.send({seller: false})
             }
+        })
+
+        // Sendign all the product to the frot side
+        app.get('/allproducts', async(req,res)=>{
+            const query = {sold: false,advertised: true}
+            const result = await products.find(query).toArray()
+            res.send(result)
+
         })
         
 
